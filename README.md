@@ -77,11 +77,11 @@ nano /opt/3x-ui-setup/caddy/Caddyfile
     https_port 4123
     default_bind 127.0.0.1
     servers {
+        protocols h1 h2
         listener_wrappers {
             proxy_protocol {
                 allow 127.0.0.1/32
             }
-            http_redirect
             tls
         }
     }
@@ -89,11 +89,19 @@ nano /opt/3x-ui-setup/caddy/Caddyfile
 }
 
 https://example.com {
+
     root * /srv
+    encode gzip zstd
     file_server
+    header {
+           Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+           X-Content-Type-Options nosniff
+           X-Frame-Options SAMEORIGIN
+    }
 }
 
 http://example.com {
+
     bind 0.0.0.0
     redir https://example.com{uri} permanent
 }
@@ -101,28 +109,40 @@ http://example.com {
 https://example.com:8443 {
 
     bind 0.0.0.0
+    encode gzip zstd
+
+    # HTTP запросы → HTTPS
+    @http protocol http
+    redir @http https://example.com:8443{uri} permanent
 
     # Подписка
     handle /sub/* {
-        reverse_proxy 127.0.0.1:2096
+        reverse_proxy 127.0.0.1:2096 {
+            header_up X-Real-IP {remote_host}
+        }
     }
 
-    # Панель
+    # Панель 3x-ui
     handle {
-        reverse_proxy 127.0.0.1:2053
+        reverse_proxy 127.0.0.1:2053 {
+            header_up X-Real-IP {remote_host}
+        }
     }
 }
 
 :4123 {
+
     tls internal
     respond 204
 }
 
 :80 {
+
     bind 0.0.0.0
     respond 204
 }
 ```
+
 - Замените example.com на ваш реальный домен в `Caddyfile`
 ```bash
 sed -i 's/example.com/ваш.домен.com/g' /opt/3x-ui-setup/caddy/Caddyfile
@@ -146,41 +166,6 @@ docker compose -f /opt/3x-ui-setup/docker-compose.yml up -d
 > [!WARNING]
 > Обязательно, сразу же измените стандартные логин и пароль: `Panel Settings -> Authentication`
 
-### Изменение путей к панели и подписке
-**Настройка пути до панели**
-- Перейдите `Panel Settings -> General -> URI Path`
-- Измените / на что то свое, например: /admin-secret-path/
-- Сохраните настройки.
-- Теперь панель будет доступна по адресу: https://example.com:8443/admin-secret-path
-
-**Настройка пути до подписки (если планируется использовать)**
-- Перейдите в `Panel Settings → Subscription -> URI Path (sub)`
-- Измените /sub/ на что то свое, например: /sub-secret-path/
-- `Panel Settings → Subscription -> Reverse Proxy URI`
-- Измените Reverse Proxy URI на https://example.com:8443/sub-secret-path/
-- Сохраните настройки и перезапустите панель.
-
-> [!CAUTION]
-> Без изменения `Caddyfile` подписки открываться не будут
-
-- Измените путь в `Caddyfile`:
-```bash
-nano /opt/3x-ui-setup/caddy/Caddyfile
-```
-```bash
-handle /sub/*
-```
-на:
-```bash
-handle /sub-secret-path/*
-```
-- Перезапустите контейнеры:
-```bash
-docker compose -f /opt/3x-ui-setup/docker-compose.yml down && docker compose -f /opt/3x-ui-setup/docker-compose.yml up -d
-```
-> [!CAUTION]
-> Необходимо использовать собственное уникальное значение для admin-secret-path и sub-secret-path.
-
 ### Создание подключения Reality (Self Steal)
 
 #### Создайте новый inbound в панели 3x-ui
@@ -201,6 +186,44 @@ docker compose -f /opt/3x-ui-setup/docker-compose.yml down && docker compose -f 
 > Замените **example.com** на ваш домен.>
 - Inbound должен выглядеть приблизительно [так](panel.png) 
 
+### Изменение путей к панели и подписке
+**Настройка пути до панели**
+- Перейдите `Panel Settings -> General -> URI Path`
+- Измените / на что то свое, например: /admin-secret-path/
+- Сохраните настройки.
+- Теперь панель будет доступна по адресу: https://example.com:8443/admin-secret-path
+
+**Настройка пути до подписки (если планируется использовать)**
+- Перейдите в `Panel Settings → Subscription -> URI Path (sub)`
+- Измените /sub/ на что то свое, например: /sub-secret-path/
+- `Panel Settings → Subscription -> Reverse Proxy URI`
+- Измените Reverse Proxy URI на https://example.com:8443/sub-secret-path/
+- Сохраните настройки и перезапустите панель.
+
+> [!CAUTION]
+> Без изменения `Caddyfile` подписки открываться не будут
+
+- Измените путь в `Caddyfile`:
+```bash
+sed -i 's|/sub/\*|/sub-secret-path/*|g' /opt/3x-ui-setup/caddy/Caddyfile
+```
+Или внимательно заменить вручную в редакторе:
+```bash
+nano /opt/3x-ui-setup/caddy/Caddyfile
+```
+```bash
+handle /sub/*
+```
+на:
+```bash
+handle /sub-secret-path/*
+```
+- Перезапустите контейнеры:
+```bash
+docker compose -f /opt/3x-ui-setup/docker-compose.yml down && docker compose -f /opt/3x-ui-setup/docker-compose.yml up -d
+```
+> [!CAUTION]
+> Необходимо использовать собственное уникальное значение для admin-secret-path и sub-secret-path.
 
 #### Thanks:
  [Akiyamov](https://github.com/Akiyamov) 
