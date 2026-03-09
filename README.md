@@ -85,6 +85,17 @@ nano /opt/3x-ui-setup/caddy/Caddyfile
             tls
         }
     }
+    # HTTP запросы > HTTPS для 8443 порта
+    servers :8443 {
+        protocols h1 h2
+        listener_wrappers {
+            proxy_protocol {
+                allow 127.0.0.1/32
+            }
+            http_redirect
+            tls
+        }
+    }
     auto_https disable_redirects
 }
 
@@ -110,10 +121,6 @@ https://example.com:8443 {
 
     bind 0.0.0.0
     encode gzip zstd
-
-    # HTTP запросы > HTTPS
-    @http protocol http
-    redir @http https://example.com:8443{uri} permanent
 
     # Подписка
     handle /sub/* {
@@ -188,7 +195,9 @@ docker compose -f /opt/3x-ui-setup/docker-compose.yml up -d
 - Sniffing - enable: HTTP TLS QUIC FAKEDNS отмечены
 > [!CAUTION]
 > Замените **example.com** на ваш домен.>
-- Inbound должен выглядеть приблизительно [так](panel.png) 
+- Inbound должен выглядеть приблизительно [так](panel.png)
+
+- Теперь должен заработать маскировочный сайт `example.com`
 
 ### Изменение путей к панели и подписке
 **Настройка пути до панели**
