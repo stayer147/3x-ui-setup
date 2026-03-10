@@ -1,7 +1,17 @@
-{
-    https_port 4123
+https_port 4123
     default_bind 127.0.0.1
     servers {
+        protocols h1 h2
+        listener_wrappers {
+            proxy_protocol {
+                allow 127.0.0.1/32
+            }
+            tls
+        }
+    }
+    # HTTP > HTTPS для 8443 порта
+    servers :8443 {
+        protocols h1 h2
         listener_wrappers {
             proxy_protocol {
                 allow 127.0.0.1/32
@@ -14,11 +24,19 @@
 }
 
 https://example.com {
+
     root * /srv
+    encode gzip zstd
     file_server
+    header {
+           Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+           X-Content-Type-Options nosniff
+           X-Frame-Options SAMEORIGIN
+    }
 }
 
 http://example.com {
+
     bind 0.0.0.0
     redir https://example.com{uri} permanent
 }
@@ -26,24 +44,32 @@ http://example.com {
 https://example.com:8443 {
 
     bind 0.0.0.0
+    encode gzip zstd
 
     # Подписка
     handle /sub/* {
-        reverse_proxy 127.0.0.1:2096
+        reverse_proxy 127.0.0.1:2096 {
+            header_up X-Real-IP {remote_host}
+        }
     }
 
-    # Панель
+    # Панель 3x-ui
     handle {
-        reverse_proxy 127.0.0.1:2053
+        reverse_proxy 127.0.0.1:2053 {
+            header_up X-Real-IP {remote_host}
+            }
     }
 }
 
 :4123 {
+
     tls internal
     respond 204
 }
 
 :80 {
+
     bind 0.0.0.0
     respond 204
+  }
 }
