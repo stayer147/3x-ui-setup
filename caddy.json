@@ -1,0 +1,208 @@
+{
+  "apps": {
+    "http": {
+      "https_port": 4123,
+      "servers": {
+        "srv0": {
+          "listen": ["0.0.0.0:80"],
+          "listener_wrappers": [
+            {"allow": ["127.0.0.1/32"], "wrapper": "proxy_protocol"}
+          ],
+          "automatic_https": {"disable_redirects": true},
+          "protocols": ["h1", "h2"],
+          "routes": [
+            {
+              "match": [{"host": ["example.com"]}],
+              "handle": [
+                {
+                  "handler": "subroute",
+                  "routes": [
+                    {
+                      "handle": [
+                        {
+                          "handler": "static_response",
+                          "headers": {
+                            "Location": ["https://example.com{http.request.uri}"]
+                          },
+                          "status_code": 301
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "terminal": true
+            },
+            {
+              "handle": [
+                {
+                  "handler": "subroute",
+                  "routes": [
+                    {
+                      "handle": [
+                        {"handler": "static_response", "status_code": 204}
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "terminal": true
+            }
+          ]
+        },
+        "srv1": {
+          "listen": ["0.0.0.0:8443"],
+          "listener_wrappers": [
+            {"allow": ["127.0.0.1/32"], "wrapper": "proxy_protocol"},
+            {"wrapper": "http_redirect"},
+            {"wrapper": "tls"}
+          ],
+          "automatic_https": {"disable_redirects": true},
+          "protocols": ["h1", "h2"],
+          "routes": [
+            {
+              "match": [{"host": ["example.com"]}],
+              "handle": [
+                {
+                  "handler": "subroute",
+                  "routes": [
+                    {
+                      "handle": [
+                        {
+                          "encodings": {"gzip": {}, "zstd": {}},
+                          "handler": "encode",
+                          "prefer": ["gzip", "zstd"]
+                        }
+                      ]
+                    },
+                    {
+                      "group": "group4",
+                      "match": [{"path": ["/sub/*"]}],
+                      "handle": [
+                        {
+                          "handler": "subroute",
+                          "routes": [
+                            {
+                              "handle": [
+                                {
+                                  "handler": "reverse_proxy",
+                                  "headers": {
+                                    "request": {
+                                      "set": {
+                                        "X-Real-Ip": ["{http.request.remote.host}"]
+                                      }
+                                    }
+                                  },
+                                  "upstreams": [{"dial": "127.0.0.1:2096"}]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "group": "group4",
+                      "handle": [
+                        {
+                          "handler": "subroute",
+                          "routes": [
+                            {
+                              "handle": [
+                                {
+                                  "handler": "reverse_proxy",
+                                  "headers": {
+                                    "request": {
+                                      "set": {
+                                        "X-Real-Ip": ["{http.request.remote.host}"]
+                                      }
+                                    }
+                                  },
+                                  "upstreams": [{"dial": "127.0.0.1:2053"}]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "terminal": true
+            }
+          ]
+        },
+        "srv2": {
+          "listen": ["127.0.0.1:4123"],
+          "listener_wrappers": [
+            {"allow": ["127.0.0.1/32"], "wrapper": "proxy_protocol"},
+            {"wrapper": "tls"}
+          ],
+          "automatic_https": {"disable_redirects": true},
+          "protocols": ["h1", "h2"],
+          "routes": [
+            {
+              "match": [{"host": ["example.com"]}],
+              "handle": [
+                {
+                  "handler": "subroute",
+                  "routes": [
+                    {
+                      "handle": [
+                        {"handler": "vars", "root": "/srv"},
+                        {
+                          "handler": "headers",
+                          "response": {
+                            "set": {
+                              "Strict-Transport-Security": ["max-age=31536000; includeSubDomains; preload"],
+                              "X-Content-Type-Options": ["nosniff"],
+                              "X-Frame-Options": ["SAMEORIGIN"]
+                            }
+                          }
+                        },
+                        {
+                          "encodings": {"gzip": {}, "zstd": {}},
+                          "handler": "encode",
+                          "prefer": ["gzip", "zstd"]
+                        },
+                        {
+                          "handler": "file_server",
+                          "hide": ["/etc/caddy/Caddyfile"]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "terminal": true
+            },
+            {
+              "handle": [
+                {
+                  "handler": "subroute",
+                  "routes": [
+                    {
+                      "handle": [
+                        {"handler": "static_response", "status_code": 204}
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "terminal": true
+            }
+          ]
+        }
+      }
+    },
+    "tls": {
+      "automation": {
+        "policies": [
+          {"subjects": ["example.com"]},
+          {"issuers": [{"module": "internal"}]}
+        ]
+      }
+    }
+  }
+}
