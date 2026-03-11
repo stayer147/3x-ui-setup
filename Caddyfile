@@ -1,24 +1,20 @@
 {
     https_port 4123
-    default_bind 127.0.0.1
 
-    servers {
+    servers 0.0.0.0:8443 {
         protocols h1 h2
         listener_wrappers {
-            proxy_protocol {
-                allow 127.0.0.1/32
-            }
+            http_redirect
             tls
         }
     }
 
-    servers :8443 {
+    servers 127.0.0.1:4123 {
         protocols h1 h2
         listener_wrappers {
             proxy_protocol {
                 allow 127.0.0.1/32
             }
-            http_redirect
             tls
         }
     }
@@ -27,6 +23,7 @@
 }
 
 https://example.com {
+    bind 127.0.0.1
     root * /srv
     encode gzip zstd
     file_server
@@ -60,6 +57,7 @@ https://example.com:8443 {
 }
 
 :4123 {
+    bind 127.0.0.1
     tls internal
     respond 204
 }
