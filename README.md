@@ -197,7 +197,7 @@ docker compose -f /opt/3x-ui-setup/docker-compose.yml up -d
 - Перейдите `Panel Settings -> General -> URI Path`
 - Измените `/` на что то свое, например: `/admin-secret-path/`
 - Сохраните настройки.
-- Теперь панель будет доступна по адресу: `https://example.com:8443/admin-secret-path`
+- Теперь панель будет доступна по адресу: `https://ваш.домен.com:8443/admin-secret-path`
 
 #### Настройка пути до подписки
 
