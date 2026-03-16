@@ -208,7 +208,7 @@ docker compose -f /opt/3x-ui-setup/docker-compose.yml up -d
 - Сохраните настройки и перезапустите панель.
 
 > [!CAUTION]
-> Если URI Path начинается с sub, например /sub-secret-path/ то дополнительные изменения в `Caddyfile` не нужны, в любом другом случае необходимо изменеть `Caddyfile`, иначе подписки открываться не будут:
+> Если URI Path начинается с sub, например /sub-secret-path/ то дополнительные изменения в `Caddyfile` не нужны, в любом другом случае необходимо изменить `Caddyfile`, иначе подписки открываться не будут:
 
 - Измените путь `/sub/` на `/super-secret-path/`  в `Caddyfile`:
 
@@ -229,7 +229,7 @@ docker compose -f /opt/3x-ui-setup/docker-compose.yml down && docker compose -f 
 ```
 
 > [!CAUTION]
-> Необходимо использовать собственное уникальное значение для `admin-secret-path` и `sub-secret-path`.
+> Необходимо использовать собственное уникальное значение для `admin-secret-path` и `sub-secret-path`. 
 
 ### Создание подключения Reality (Self Steal)
 
