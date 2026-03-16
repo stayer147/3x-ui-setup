@@ -43,7 +43,7 @@ https://example.com:8443 {
     bind 0.0.0.0
     encode gzip zstd
 
-    handle /sub/* {
+    handle /sub* {
         reverse_proxy 127.0.0.1:2096 {
             header_up X-Real-IP {remote_host}
         }
