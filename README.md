@@ -65,6 +65,8 @@ services:
       - ./caddy/data:/data
       - ./caddy/templates:/srv
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile
+    environment:
+#      TZ: Europe/Moscow
 
   3xui:
     image: ghcr.io/mhsanaei/3x-ui:latest
@@ -74,6 +76,7 @@ services:
     volumes:
       - ./3x-ui/db/:/etc/x-ui/
     environment:
+#      TZ: Europe/Moscow
       XRAY_VMESS_AEAD_FORCED: "false"
       XUI_ENABLE_FAIL2BAN: "true"
     tty: true
