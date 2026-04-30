@@ -1,6 +1,6 @@
 services:
   caddy:
-    image: caddy:2.11
+    image: caddy:latest
     container_name: caddy
     restart: always
     network_mode: host
@@ -16,6 +16,7 @@ services:
     network_mode: host
     volumes:
       - ./3x-ui/db/:/etc/x-ui/
+      - ./caddy/data:/caddy-data:ro
     environment:
       XRAY_VMESS_AEAD_FORCED: "false"
       XUI_ENABLE_FAIL2BAN: "true"

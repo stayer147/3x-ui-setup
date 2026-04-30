@@ -1,13 +1,13 @@
-# 3x-ui + Caddy + Reality Self Steal в Docker
+# 3x-ui + Caddy + VLESS + XHTTP + TLS в Docker
 
-## Пошаговая инструкция по развёртыванию связки 3x-ui + Caddy + Reality (Self Steal) в Docker.
+## Пошаговая инструкция по развёртыванию связки 3x-ui + Caddy + VLESS + XHTTP + TLS в Docker.
 
 ### Подготовка
 
 Предполагается, что:
 - Настроен и защищён доступ к серверу по SSH
 - Установлен и настроен firewall (открыты порты 80, 443 и 8443)
-- Зарегистрирован и делегирован домен (например, my.domain.com), указывающий на ваш сервер \
+- Зарегистрирован и делегирован домен (например, mydomain.com), указывающий на ваш сервер \
 Нет своего домена, не страшно, можно использовать бесплатные домены предоставляемые сервисами: dynu.com, freedns.afraid.org, duckdns.org и т.п., главное, что бы он был и указывал на сервер
 
 ### Установка Docker
@@ -57,7 +57,7 @@ nano /opt/3x-ui-setup/docker-compose.yml
 ```bash
 services:
   caddy:
-    image: caddy:2.11
+    image: caddy:latest
     container_name: caddy
     restart: always
     network_mode: host
@@ -65,8 +65,6 @@ services:
       - ./caddy/data:/data
       - ./caddy/templates:/srv
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile
-    environment:
-#      TZ: Europe/Moscow
 
   3xui:
     image: ghcr.io/mhsanaei/3x-ui:latest
@@ -75,6 +73,7 @@ services:
     network_mode: host
     volumes:
       - ./3x-ui/db/:/etc/x-ui/
+      - ./caddy/data:/caddy-data:ro
     environment:
       XRAY_VMESS_AEAD_FORCED: "false"
       XUI_ENABLE_FAIL2BAN: "true"
@@ -159,10 +158,10 @@ https://example.com:8443 {
 }
 ```
 
-- Замените example.com на ваш реальный домен в `Caddyfile` через sed, где он заменит `example.com` из конфига на `my.domain.com`:
+- Замените example.com на ваш реальный домен в `Caddyfile` через sed, где он заменит `example.com` из конфига на `mydomain.com`:
 
 ```bash
-sed -i 's/example.com/my.domain.com/g' /opt/3x-ui-setup/caddy/Caddyfile
+sed -i 's/example.com/mydomain.com/g' /opt/3x-ui-setup/caddy/Caddyfile
 ```
 
 - Или можете заменить домен вручную, редактируя `Caddyfile` в редакторе
@@ -187,7 +186,7 @@ docker compose -f /opt/3x-ui-setup/docker-compose.yml up -d
 
 ### Первый вход в панель
 
-- Откройте в браузере: https://my.domain.com:8443
+- Откройте в браузере: https://mydomain.com:8443
 - Логин: admin
 - Пароль: admin
 
@@ -201,14 +200,14 @@ docker compose -f /opt/3x-ui-setup/docker-compose.yml up -d
 - Перейдите `Panel Settings -> General -> URI Path`
 - Измените `/` на что то свое, например: `/admin-secret-path/`
 - Сохраните настройки.
-- Теперь панель будет доступна по адресу: `https://my.domain.com:8443/admin-secret-path`
+- Теперь панель будет доступна по адресу: `https://mydomain.com:8443/admin-secret-path`
 
 #### Настройка пути до подписки
 
 - Перейдите в `Panel Settings → Subscription -> URI Path (sub)`
 - Измените `/sub/` на что то свое, например: `/sub-secret-path/`
 - `Panel Settings → Subscription -> Reverse Proxy URI`
-- Измените Reverse Proxy URI на `https://my.domain.com:8443/sub-secret-path/`
+- Измените Reverse Proxy URI на `https://mydomain.com:8443/sub-secret-path/`
 - Сохраните настройки и перезапустите панель.
 
 > [!CAUTION]
@@ -235,26 +234,37 @@ docker compose -f /opt/3x-ui-setup/docker-compose.yml down && docker compose -f 
 > [!CAUTION]
 > Необходимо использовать собственное уникальное значение для `admin-secret-path` и `sub-secret-path`. 
 
-### Создание подключения Reality (Self Steal)
+### Создание подключения VLESS + XHTTP + TLS
+
+В этой схеме Caddy выпускает и обновляет сертификат, а 3x-ui/Xray использует этот сертификат для TLS inbound.
+
+#### Проверьте путь к сертификату Caddy
+
+Caddy хранит данные в контейнере в `/data`, а в этом проекте директория примонтирована на хост как `/opt/3x-ui-setup/caddy/data`. В контейнер 3x-ui она дополнительно подключена read-only как `/caddy-data`.
+
+Обычно сертификаты Let's Encrypt находятся здесь:
+
+```text
+/caddy-data/caddy/certificates/acme-v02.api.letsencrypt.org-directory/mydomain.com/mydomain.com.crt
+/caddy-data/caddy/certificates/acme-v02.api.letsencrypt.org-directory/mydomain.com/mydomain.com.key
+```
 
 #### Создайте новый inbound в панели 3x-ui
 
-При создании inbound используйте следующии параметры:
-- Protocol: vless
+При создании inbound используйте следующие параметры:
+- Protocol: VLESS
 - Port: 443
-- Flow: xtls-rprx-vision
-- Transmission: tcp
-- Security: Reality
-- Xver: 1
+- Transmission: XHTTP
+- Security: TLS
+- XHTTP Mode: auto (или packet-up, если нужен CDN-сценарий)
+- XHTTP Path: `/` (или ваш уникальный путь, например `/xhttp-secret`)
+- SNI: mydomain.com
+- Certificate File Path: `/caddy-data/caddy/certificates/acme-v02.api.letsencrypt.org-directory/mydomain.com/mydomain.com.crt`
+- Key File Path: `/caddy-data/caddy/certificates/acme-v02.api.letsencrypt.org-directory/mydomain.com/mydomain.com.key`
 - uTLS: chrome
-- Target: 127.0.0.1:4123
-- SNI: my.domain.com
-- PrivateKey Public Key: сгенерировать нажав Get New Cert
-- ShortID: сгенерировать
 - Sniffing - enable: HTTP TLS QUIC FAKEDNS отмечены
 
-
-+ Inbound должен выглядеть приблизительно [так](panel.png)
+Inbound должен выглядеть приблизительно [так](panel.png)
 
 - Теперь должен заработать маскировочный сайт `https://my.domain.com`
 
