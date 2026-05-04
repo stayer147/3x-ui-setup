@@ -115,7 +115,6 @@ pre_start_hook() {
 
 post_stop_hook() {
     log Info "User post-stop: очистка..."
-    pkill -f clash
 }
 ```
 
@@ -272,39 +271,6 @@ su -c "capsh --caps='cap_net_admin,cap_net_bind_service,cap_net_raw+eip' --addam
 }
 ```
 
-#### Пример для Clash
-
-```yaml
-tproxy-port: 1536
-
-dns:
-  enable: true
-  listen: 0.0.0.0:1053
-  ipv6: false
-  enhanced-mode: fake-ip
-  fake-ip-range: 198.18.0.0/15
-  fake-ip-filter:
-    - "*"
-    - "+.lan"
-    - "+.local"
-  nameserver:
-    - https://120.53.53.53/dns-query
-    - https://223.5.5.5/dns-query
-```
-
-#### Пример для Clash Meta (mihomo)
-
-```yaml
-tproxy-port: 1536
-
-proxies:
-  - name: "DNS_Hijack"
-    type: dns
-
-rules:
-  - DST-PORT,53,DNS_Hijack
-```
-
 #### Пример для xray / v2ray (dokodemo-door + tproxy)
 
 ```json
@@ -434,7 +400,6 @@ pre_start_hook() {
 
 post_stop_hook() {
     log Info "User post-stop: cleanup..."
-    pkill -f clash
 }
 ```
 
@@ -582,39 +547,6 @@ su -c "capsh --caps='cap_net_admin,cap_net_bind_service,cap_net_raw+eip' --addam
     ]
   }
 }
-```
-
-#### Clash Example
-
-```yaml
-tproxy-port: 1536
-
-dns:
-  enable: true
-  listen: 0.0.0.0:1053
-  ipv6: false
-  enhanced-mode: fake-ip
-  fake-ip-range: 198.18.0.0/15
-  fake-ip-filter:
-    - "*"
-    - "+.lan"
-    - "+.local"
-  nameserver:
-    - https://120.53.53.53/dns-query
-    - https://223.5.5.5/dns-query
-```
-
-#### Clash Meta (mihomo) Example
-
-```yaml
-tproxy-port: 1536
-
-proxies:
-  - name: "DNS_Hijack"
-    type: dns
-
-rules:
-  - DST-PORT,53,DNS_Hijack
 ```
 
 #### xray / v2ray Example (dokodemo-door + tproxy)

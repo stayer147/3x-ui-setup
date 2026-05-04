@@ -6,7 +6,7 @@
 - Команды `iptables`/`ip6tables` + `ip`
 - Команда `curl` (для загрузки списков RU IP)
 - Модули ядра: `xt_TPROXY`, `xt_owner`, `xt_mac`, `ip_set` + `xt_set`
-- Прокси-клиент, слушающий на localhost с поддержкой TPROXY (Xray, sing-box, Clash Meta)
+- Прокси-клиент, слушающий на localhost с поддержкой TPROXY (Xray, sing-box)
 
 ### Прозрачный прокси (tproxy.sh)
 
@@ -72,12 +72,6 @@ su -c "/data/adb/tproxy.sh -d /data/adb/ start"
 ```bash
 ./sing-box run -c singbox.json
 ```
-
-### Clash Meta (mihomo)
-
-Используйте конфиг [configs/clash_meta.yaml](configs/clash_meta.yaml).
-
-Замените `YOUR_UUID_FROM_3XUI` на UUID из панели 3x-ui.
 
 ### VK TURN
 

@@ -15,7 +15,7 @@
 │             │     │  (UDP 56000) │     │  :2024      │     │          │
 └─────────────┘     └──────────────┘     └─────────────┘     └──────────┘
   │ tproxy.sh                               │ Caddy
-  │ Xray/sing-box/Clash                     │ Lampac (маскировка)
+  │ Xray/sing-box                           │ Lampac (маскировка)
   │                                         │ TLS через Caddy (:443)
 ```
 
@@ -29,7 +29,7 @@
 
 **Клиент (`client/`):**
 - **tproxy.sh** — прозрачный прокси (TPROXY) для Android
-- **Xray / sing-box / Clash Meta** — прокси-клиент
+- **Xray / sing-box** — прокси-клиент
 - **VK TURN Client** — клиентская часть VK TURN транспорта
 
 ### Быстрый старт
@@ -59,9 +59,8 @@ steal-oneself/
 │   │   ├── tproxy.sh
 │   │   └── tproxy.conf.example
 │   ├── configs/
-│   │   ├── xray.json
-│   │   ├── singbox.json
-│   │   └── clash_meta.yaml
+  │   │   ├── xray.json
+  │   │   └── singbox.json
 │   └── vk-turn/
 │       └── README.md
 └── docs/                  # Общая документация
