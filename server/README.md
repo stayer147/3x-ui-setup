@@ -7,7 +7,6 @@
 <details>
 <summary>Настройка SSH</summary>
 
-
 Выполняется на локальном компьютере (GNU/Linux или Windows). На Windows используйте PowerShell.
 
 ### Генерация ключа
@@ -55,30 +54,13 @@ sudo systemctl restart ssh
 </details>
 
 <details>
-<summary>Включение BBR</summary>
-
-BBR — алгоритм управления перегрузкой TCP от Google, улучшающий производительность сети.
-
-```bash
-echo "net.core.default_qdisc=fq" | sudo tee -a /etc/sysctl.conf
-echo "net.ipv4.tcp_congestion_control=bbr" | sudo tee -a /etc/sysctl.conf
-sudo sysctl -p
-```
-
-Проверка:
-```bash
-sysctl net.ipv4.tcp_congestion_control
-# Должно вывести: net.ipv4.tcp_congestion_control = bbr
-```
-</details>
-<details>
 <summary>Установка Docker</summary>
 
 Инструкции: https://docs.docker.com/engine/install/
 
 **Быстрая установка:**
 ```bash
-bash <(wget -qO- https://get.docker.com) @ -o get-docker.sh
+bash <(wget -qO- https://get.docker.com)
 ```
 
 ### Запуск Docker без root
@@ -99,83 +81,32 @@ docker run hello-world
 ### Развёртывание
 
 ```bash
-cd /opt
-git clone --depth 1 https://github.com/w3struk/steal-oneself serv
-mv serv/server/* serv/
-rm -rf serv/server serv/client serv/docs
-cd serv
+git clone https://github.com/w3struk/steal-oneself /opt/serv
+cd /opt/serv/server
+sudo bash setup.sh mydomain.com
 ```
 
-#### Подготовка паролей
+Скрипт автоматически:
+- Генерирует пароль для Lampac
+- Включает BBR
+- Генерирует случайные пути для панели и подписки
+- Обновляет Caddyfile (домен, пути, bcrypt хэш)
+- Настраивает firewall (iptables)
+- Запускает контейнеры
+- Устанавливает базовый путь панели
 
-**Пароль для Lampac NextGen:**
-```bash
-printf '%s' 'your_strong_password' > ./lampac/passwd
-```
+> [!NOTE]
+> Скрипт запускается от root, так как настраивает BBR и firewall.
 
-**Пароль для Caddy (bcrypt-хэш):**
-```bash
-docker run --rm -it caddy caddy hash-password
-```
-Введите пароль и скопируйте полученный хэш (начинается с `$2a$`).
+### Первый вход в панель
 
-#### Настройка домена
-
-Замените `example.com` на ваш реальный домен:
-
-```bash
-sed -i 's/example.com/mydomain.com/g' ./Caddyfile
-```
-
-Или используйте автоматический скрипт:
-```bash
-bash ./scripts/setup.sh mydomain.com
-```
-
-#### Запуск
-
-```bash
-docker compose up -d
-```
-
-#### Настройка пути до панели
-
-При первом запуске панель ожидает корень `/`, а Caddy проксирует путь `/admin`. Установите правильный путь:
-
-```bash
-docker exec -it 3xui_app /app/x-ui setting -webBasePath /admin-secret-path/
-docker restart 3xui_app
-```
-
-#### Первый вход в панель
-
-1. Откройте `https://mydomain.com/admin-secret-path/` (обязательно со слэшем на конце)
+1. Откройте URL из вывода скрипта (обязательно со слэшем на конце)
 2. Basic Auth (от Caddy): логин `admin`, ваш пароль
 3. Страница входа 3x-ui: логин `admin`, пароль `admin`
 
 > [!WARNING]
 > Сразу измените стандартные логин и пароль: `Panel Settings -> Authentication`.
 > Установите `Panel Listening IP` на `127.0.0.1`.
-
-#### Настройка пути до подписки
-
-1. `Panel Settings → Subscription → URI Path (sub)`: измените `/sub/` на `/sub-secret-path/`
-2. `Panel Settings → Subscription → Reverse Proxy URI`: установите `https://mydomain.com/sub-secret-path/`
-3. Сохраните и перезапустите панель
-
-> [!CAUTION]
-> Если `URI Path` не начинается с `sub`, измените путь `/sub*` в `Caddyfile`:
-> ```bash
-> sed -i 's|/sub|/super-secret-path|g' ./Caddyfile
-> ```
-
-Перезапуск после изменений:
-```bash
-docker compose down && docker compose up -d
-```
-
-> [!CAUTION]
-> Используйте уникальные значения для `admin-secret-path` и `sub-secret-path`.
 
 ### Создание inbounds
 
@@ -196,17 +127,8 @@ docker compose down && docker compose up -d
 - **Force TLS:** включить
 - **Remark:** `Через Caddy`
 
-### Настройка firewall
+### Настройка подписки
 
-```bash
-sudo iptables -A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
-sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT
-sudo iptables -A INPUT -p tcp --dport 80 -j ACCEPT
-sudo iptables -A INPUT -p udp --dport 80 -j ACCEPT
-sudo iptables -A INPUT -p tcp --dport 443 -j ACCEPT
-sudo iptables -A INPUT -p udp --dport 443 -j ACCEPT
-sudo iptables -A INPUT -i lo -j ACCEPT
-sudo iptables -A OUTPUT -o lo -j ACCEPT
-sudo iptables -P INPUT DROP
-sudo iptables-save > /etc/network/iptables.rules
-```
+1. `Panel Settings → Subscription → URI Path (sub)`: измените `/sub/` на путь из вывода скрипта (например `/sub-abc123/`)
+2. `Panel Settings → Subscription → Reverse Proxy URI`: установите `https://mydomain.com/sub-abc123/`
+3. Сохраните и перезапустите панель
