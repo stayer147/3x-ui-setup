@@ -79,7 +79,7 @@ BCRYPT_HASH=$(docker run --rm -i caddy caddy hash-password <<< "$WEB_PASSWORD" 2
     echo "Error: Failed to generate bcrypt hash"
     exit 1
 }
-sed -i "s/\\\$2a\\\$14\\\$HASHEDPASSWORD/$BCRYPT_HASH/" "$SERVER_DIR/Caddyfile"
+sed -i "s|\\\$2a\\\$14\\\$HASHEDPASSWORD|$BCRYPT_HASH|" "$SERVER_DIR/Caddyfile"
 echo "  Caddy bcrypt hash updated"
 
 echo "[5/8] Configuring firewall..."

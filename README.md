@@ -83,8 +83,8 @@ docker run hello-world
 ### Развёртывание
 
 ```bash
-git clone https://github.com/w3struk/steal-oneself /opt
-cd /opt/serv
+cd /opt
+git clone https://github.com/w3struk/serv & cd /serv
 ./setup.sh
 ```
 
