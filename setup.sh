@@ -50,10 +50,10 @@ echo "Client UUID: $CLIENT_ID"
 echo ""
 
 echo "[1/8] Preparing directories and Lampac password..."
-mkdir -p "$SERVER_DIR/lampac"
+mkdir -p "$SERVER_DIR/lampac/config"
 mkdir -p "$SERVER_DIR/3x-ui/db"
 mkdir -p "$SERVER_DIR/caddy/data"
-printf '%s' "$LAMJac_PASSWORD" > "$SERVER_DIR/lampac/passwd"
+printf '%s' "$LAMJac_PASSWORD" > "$SERVER_DIR/lampac/config/passwd"
 echo "  Done"
 
 echo "[2/8] Enabling BBR..."
@@ -64,11 +64,15 @@ if ! grep -q "net.core.default_qdisc=fq" /etc/sysctl.conf; then
 fi
 echo "  BBR enabled"
 
-echo "[3/8] Updating Caddyfile..."
-sed -i "s/example\.com/$DOMAIN/g" "$SERVER_DIR/Caddyfile"
-# Обновляем пути в Caddyfile, используя формат из шаблона
-sed -i "s|/admin-\*|/$ADMIN_PATH/*|g" "$SERVER_DIR/Caddyfile"
-sed -i "s|/sub-\*|/$SUB_PATH/*|g" "$SERVER_DIR/Caddyfile"
+echo "[3/8] Generating Caddyfile from template..."
+if [ ! -f "$SERVER_DIR/Caddyfile.template" ]; then
+    echo "Error: Caddyfile.template not found"
+    exit 1
+fi
+cp "$SERVER_DIR/Caddyfile.template" "$SERVER_DIR/Caddyfile"
+sed -i "s|\$DOMAIN|$DOMAIN|g" "$SERVER_DIR/Caddyfile"
+sed -i "s|\$ADMIN_PATH|$ADMIN_PATH|g" "$SERVER_DIR/Caddyfile"
+sed -i "s|\$SUB_PATH|$SUB_PATH|g" "$SERVER_DIR/Caddyfile"
 echo "  Domain and paths updated"
 
 echo "[4/8] Generating Caddy bcrypt hash..."
@@ -82,7 +86,7 @@ BCRYPT_HASH=$(docker run --rm -i caddy caddy hash-password <<< "$WEB_PASSWORD" 2
     echo "Error: Failed to generate bcrypt hash"
     exit 1
 }
-sed -i "s|\\\$2a\\\$14\\\$HASHEDPASSWORD|$BCRYPT_HASH|" "$SERVER_DIR/Caddyfile"
+sed -i "s|\$WEB_PASSWORD_HASH|$BCRYPT_HASH|g" "$SERVER_DIR/Caddyfile"
 echo "  Caddy bcrypt hash updated"
 
 echo "[5/8] Configuring firewall..."

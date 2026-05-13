@@ -1,0 +1,48 @@
+{
+    auto_https disable_redirects
+
+    servers :8080 {
+        listener_wrappers {
+            proxy_protocol {
+                timeout 2s
+                allow 127.0.0.1/32
+            }
+        }
+    }
+
+    servers {
+        trusted_proxies static 127.0.0.1/32
+    }
+}
+
+http://:80 {
+    bind 0.0.0.0
+    redir https://$DOMAIN{uri} permanent
+}
+
+http://127.0.0.1:8080 {
+    encode gzip zstd
+
+    handle_path /$ADMIN_PATH/* {
+        basic_auth {
+            admin $WEB_PASSWORD_HASH
+        }
+        reverse_proxy 127.0.0.1:2053
+    }
+
+    handle_path /$SUB_PATH/* {
+        reverse_proxy 127.0.0.1:2096
+    }
+
+    handle {
+        reverse_proxy 127.0.0.1:9118
+    }
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+        -Server
+        -X-Powered-By
+    }
+}
