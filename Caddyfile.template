@@ -24,13 +24,6 @@ http://:80 {
     bind 127.0.0.1
     encode gzip zstd
 
-    @xui-api {
-        path /login /csrf-token /getTwoFactorEnable /panel/* /xui/* /assets/*
-    }
-    handle @xui-api {
-        reverse_proxy 127.0.0.1:2053
-    }
-
     handle /$ADMIN_PATH/* {
         basic_auth {
             admin $WEB_PASSWORD_HASH
@@ -38,7 +31,12 @@ http://:80 {
         reverse_proxy 127.0.0.1:2053
     }
 
-    handle_path /$SUB_PATH/* {
+    handle /assets/* {
+        rewrite * /$ADMIN_PATH{path}
+        reverse_proxy 127.0.0.1:2053
+    }
+
+    handle /$SUB_PATH/* {
         reverse_proxy 127.0.0.1:2096
     }
 

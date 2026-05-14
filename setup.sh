@@ -42,6 +42,7 @@ SUB_PATH="sub-$(head -c 8 /dev/urandom | base64 | tr -dc 'a-z0-9' | head -c 8)"
 XHTTP_PATH="api/v$(shuf -i 1-999 -n 1)"
 LAMJac_PASSWORD="$(head -c 16 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 16)"
 CLIENT_ID=$(cat /proc/sys/kernel/random/uuid)
+SUB_ID=$(head -c 16 /dev/urandom | md5sum | head -c 16)
 
 echo "=== Configuration Summary ==="
 echo "Domain:      $DOMAIN"
@@ -168,9 +169,9 @@ XHTTP_RESP=$(xui_json "http://127.0.0.1:2053/panel/api/inbounds/add" '{
   "up": 0, "down": 0, "total": 0,
   "remark": "VLESS-XHTTP-Backend", "enable": true, "expiryTime": 0,
   "listen": "127.0.0.1", "port": 2023, "protocol": "vless",
-  "settings": "{\"clients\":[{\"id\":\"'"$CLIENT_ID"'\"}],\"decryption\":\"none\",\"fallbacks\":[]}",
-  "streamSettings": "{\"network\":\"xhttp\",\"security\":\"none\",\"externalProxy\":[{\"dest\":\"'"$DOMAIN"'\",\"port\":443,\"forceTls\":\"same\"}],\"xhttpSettings\":{\"path\":\"'"/$XHTTP_PATH"'\",\"mode\":\"auto\"}}",
-  "sniffing": "{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\",\"fakedns\"]}",
+  "settings": "{\"clients\":[{\"id\":\"'"$CLIENT_ID"'\",\"subId\":\"'"$SUB_ID"'\"}],\"decryption\":\"none\",\"fallbacks\":[]}",
+  "streamSettings": "{\"network\":\"xhttp\",\"security\":\"none\",\"externalProxy\":[{\"dest\":\"'"$DOMAIN"'\",\"port\":443,\"forceTls\":\"tls\",\"remark\":\"\"}],\"xhttpSettings\":{\"path\":\"'"/$XHTTP_PATH"'\",\"mode\":\"auto\"},\"sockopt\":{\"acceptProxyProtocol\":true},\"finalmask\":{}}",
+  "sniffing": "{\"enabled\":true,\"destOverride\":[\"http\",\"tls\"],\"routeOnly\":true}",
   "allocate": "{\"strategy\":\"always\",\"refresh\":5,\"concurrency\":3}"
 }') || true
 if ! echo "$XHTTP_RESP" | python3 -c "import sys,json; sys.exit(0 if json.load(sys.stdin).get('success') else 1)" 2>/dev/null; then
@@ -184,9 +185,9 @@ FRONTEND_RESP=$(xui_json "http://127.0.0.1:2053/panel/api/inbounds/add" '{
   "up": 0, "down": 0, "total": 0,
   "remark": "VLESS-TCP-Vision-Frontend", "enable": true, "expiryTime": 0,
   "listen": "", "port": 443, "protocol": "vless",
-  "settings": "{\"clients\":[{\"id\":\"'"$CLIENT_ID"'\",\"flow\":\"xtls-rprx-vision\"}],\"decryption\":\"none\",\"fallbacks\":[{\"dest\":\"2023\",\"xver\":0,\"path\":\"'"/$XHTTP_PATH"'"},{\"dest\":\"8080\",\"xver\":2}]}",
+  "settings": "{\"clients\":[{\"id\":\"'"$CLIENT_ID"'\",\"flow\":\"xtls-rprx-vision\",\"subId\":\"'"$SUB_ID"'\"}],\"decryption\":\"none\",\"fallbacks\":[{\"alpn\":\"h2\",\"dest\":\"127.0.0.1:2023\",\"xver\":1},{\"dest\":\"8080\",\"xver\":2}]}",
   "streamSettings": "{\"network\":\"tcp\",\"security\":\"tls\",\"tlsSettings\":{\"serverName\":\"'"$DOMAIN"'\",\"minVersion\":\"1.3\",\"maxVersion\":\"1.3\",\"cipherSuites\":\"\",\"certificates\":[{\"certificateFile\":\"'"$CERT_DIR/$DOMAIN"'.crt\",\"keyFile\":\"'"$CERT_DIR/$DOMAIN"'.key\"}],\"alpn\":[\"h2\",\"http/1.1\"]}}",
-  "sniffing": "{\"enabled\":true,\"destOverride\":[\"http\",\"tls\",\"quic\",\"fakedns\"]}",
+  "sniffing": "{\"enabled\":true,\"destOverride\":[\"http\",\"tls\"],\"routeOnly\":true}",
   "allocate": "{\"strategy\":\"always\",\"refresh\":5,\"concurrency\":3}"
 }') || true
 if ! echo "$FRONTEND_RESP" | python3 -c "import sys,json; sys.exit(0 if json.load(sys.stdin).get('success') else 1)" 2>/dev/null; then
