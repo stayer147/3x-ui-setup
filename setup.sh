@@ -37,18 +37,42 @@ XUI_PASS=${XUI_PASS:-admin}
 echo "-------------------------------"
 echo ""
 
+echo "--- Client Configuration ---"
+echo "How to handle client IDs for the two inbounds (XHTTP backend + Vision frontend):"
+echo ""
+echo "  1) Single ID (UUID) for both inbounds"
+echo "     One subscription returns both configs. Simpler setup."
+echo "  2) Different UUIDs, separate subscriptions"
+echo "     Each inbound has its own UUID and subscription link."
+echo ""
+read -p "Choose (default: 1): " UUID_MODE
+UUID_MODE=${UUID_MODE:-1}
+echo ""
+
 ADMIN_PATH="admin-$(head -c 8 /dev/urandom | base64 | tr -dc 'a-z0-9' | head -c 8)"
 SUB_PATH="sub-$(head -c 8 /dev/urandom | base64 | tr -dc 'a-z0-9' | head -c 8)"
 XHTTP_PATH="api/v$(shuf -i 1-999 -n 1)"
 LAMJac_PASSWORD="$(head -c 16 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 16)"
-CLIENT_ID=$(cat /proc/sys/kernel/random/uuid)
-SUB_ID=$(head -c 16 /dev/urandom | md5sum | head -c 16)
+
+if [ "$UUID_MODE" = "2" ]; then
+    CLIENT_ID=$(cat /proc/sys/kernel/random/uuid)
+    CLIENT_ID_VISION=$(cat /proc/sys/kernel/random/uuid)
+    SUB_ID=$(head -c 16 /dev/urandom | md5sum | head -c 16)
+    SUB_ID_VISION=$(head -c 16 /dev/urandom | md5sum | head -c 16)
+else
+    CLIENT_ID=$(cat /proc/sys/kernel/random/uuid)
+    SUB_ID=$(head -c 16 /dev/urandom | md5sum | head -c 16)
+fi
 
 echo "=== Configuration Summary ==="
 echo "Domain:      $DOMAIN"
 echo "Admin path:  /$ADMIN_PATH/"
 echo "Sub path:    /$SUB_PATH/"
 echo "XHTTP path:  /$XHTTP_PATH/"
+if [ "$UUID_MODE" = "2" ]; then
+    echo "XHTTP UUID:  $CLIENT_ID"
+    echo "Vision UUID: $CLIENT_ID_VISION"
+fi
 echo "Client UUID: $CLIENT_ID"
 echo ""
 
@@ -170,7 +194,7 @@ XHTTP_RESP=$(xui_json "http://127.0.0.1:2053/panel/api/inbounds/add" '{
   "remark": "VLESS-XHTTP-Backend", "enable": true, "expiryTime": 0,
   "listen": "127.0.0.1", "port": 2023, "protocol": "vless",
   "settings": "{\"clients\":[{\"id\":\"'"$CLIENT_ID"'\",\"subId\":\"'"$SUB_ID"'\"}],\"decryption\":\"none\",\"fallbacks\":[]}",
-  "streamSettings": "{\"network\":\"xhttp\",\"security\":\"none\",\"externalProxy\":[{\"dest\":\"'"$DOMAIN"'\",\"port\":443,\"forceTls\":\"tls\",\"remark\":\"\"}],\"xhttpSettings\":{\"path\":\"'"/$XHTTP_PATH"'\",\"mode\":\"auto\"},\"sockopt\":{\"acceptProxyProtocol\":true},\"finalmask\":{}}",
+  "streamSettings": "{\"network\":\"xhttp\",\"security\":\"none\",\"externalProxy\":[{\"dest\":\"'"$DOMAIN"'\",\"port\":443,\"forceTls\":\"tls\",\"remark\":\"\"}],\"xhttpSettings\":{\"path\":\"'"/$XHTTP_PATH"'\",\"mode\":\"auto\"},\"finalmask\":{}}",
   "sniffing": "{\"enabled\":true,\"destOverride\":[\"http\",\"tls\"],\"routeOnly\":true}",
   "allocate": "{\"strategy\":\"always\",\"refresh\":5,\"concurrency\":3}"
 }') || true
@@ -185,7 +209,7 @@ FRONTEND_RESP=$(xui_json "http://127.0.0.1:2053/panel/api/inbounds/add" '{
   "up": 0, "down": 0, "total": 0,
   "remark": "VLESS-TCP-Vision-Frontend", "enable": true, "expiryTime": 0,
   "listen": "", "port": 443, "protocol": "vless",
-  "settings": "{\"clients\":[{\"id\":\"'"$CLIENT_ID"'\",\"flow\":\"xtls-rprx-vision\",\"subId\":\"'"$SUB_ID"'\"}],\"decryption\":\"none\",\"fallbacks\":[{\"alpn\":\"h2\",\"dest\":\"127.0.0.1:2023\",\"xver\":1},{\"dest\":\"8080\",\"xver\":2}]}",
+  "settings": "{\"clients\":[{\"id\":\"'"${CLIENT_ID_VISION:-$CLIENT_ID}"'\",\"flow\":\"xtls-rprx-vision\",\"subId\":\"'"${SUB_ID_VISION:-$SUB_ID}"'\"}],\"decryption\":\"none\",\"fallbacks\":[{\"dest\":\"8080\",\"xver\":2}]}",
   "streamSettings": "{\"network\":\"tcp\",\"security\":\"tls\",\"tlsSettings\":{\"serverName\":\"'"$DOMAIN"'\",\"minVersion\":\"1.3\",\"maxVersion\":\"1.3\",\"cipherSuites\":\"\",\"certificates\":[{\"certificateFile\":\"'"$CERT_DIR/$DOMAIN"'.crt\",\"keyFile\":\"'"$CERT_DIR/$DOMAIN"'.key\"}],\"alpn\":[\"h2\",\"http/1.1\"]}}",
   "sniffing": "{\"enabled\":true,\"destOverride\":[\"http\",\"tls\"],\"routeOnly\":true}",
   "allocate": "{\"strategy\":\"always\",\"refresh\":5,\"concurrency\":3}"
@@ -244,12 +268,27 @@ echo ""
 echo "=== Setup Complete ==="
 echo "URLs:"
 echo "  Panel:  https://$DOMAIN/$ADMIN_PATH/"
-echo "  Sub:    https://$DOMAIN/$SUB_PATH/"
+echo ""
+echo "Subscription links:"
+if [ "$UUID_MODE" = "2" ]; then
+    echo "  XHTTP:  https://$DOMAIN/$SUB_PATH/$SUB_ID"
+    echo "  Vision: https://$DOMAIN/$SUB_PATH/${SUB_ID_VISION}"
+else
+    echo "  Single: https://$DOMAIN/$SUB_PATH/$SUB_ID"
+fi
 echo ""
 echo "Credentials:"
 echo "  Web Auth: admin / [your password]"
 echo "  3x-ui:    $XUI_USER / $XUI_PASS"
-echo "  UUID:     $CLIENT_ID"
+if [ "$UUID_MODE" = "2" ]; then
+    echo "  XHTTP UUID:  $CLIENT_ID"
+    echo "  Vision UUID: $CLIENT_ID_VISION"
+    echo "  XHTTP SubID: $SUB_ID"
+    echo "  Vision SubID: $SUB_ID_VISION"
+else
+    echo "  UUID:     $CLIENT_ID"
+    echo "  Sub ID:   $SUB_ID"
+fi
 echo "  XHTTP:    /$XHTTP_PATH/"
 echo "  Lampac:   $LAMJac_PASSWORD"
 echo ""

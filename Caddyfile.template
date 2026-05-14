@@ -40,6 +40,10 @@ http://:80 {
         reverse_proxy 127.0.0.1:2096
     }
 
+    handle /$XHTTP_PATH/* {
+        reverse_proxy 127.0.0.1:2023
+    }
+
     handle {
         reverse_proxy 127.0.0.1:9118
     }
