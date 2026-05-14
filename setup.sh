@@ -145,53 +145,83 @@ add_client() {
 
     local csrf
 
+    get_inbound_ids() {
+        local csrf; csrf=$(csrf_token)
+        local resp; resp=$(curl -s --max-time 5 -b "$COOKIE_FILE" "http://127.0.0.1:2053${API_PREFIX}/panel/api/inbounds/list" \
+            -H "X-Requested-With: XMLHttpRequest" -H "X-CSRF-Token: $csrf")
+        ID_XHTTP=$(echo "$resp" | python3 -c "import sys,json; [print(i['id']) for i in json.load(sys.stdin)['obj'] if i.get('port')==2023]" 2>/dev/null)
+        ID_VISION=$(echo "$resp" | python3 -c "import sys,json; [print(i['id']) for i in json.load(sys.stdin)['obj'] if i.get('port')==443]" 2>/dev/null)
+    }
+
+    add_client_to_inbound() {
+        local id="$1" cid="$2" sid="$3" flow="$4"
+        local csv="{\\\"id\\\":\\\"$cid\\\",\\\"subId\\\":\\\"$sid\\\"}"
+        [ -n "$flow" ] && csv="{\\\"id\\\":\\\"$cid\\\",\\\"flow\\\":\\\"$flow\\\",\\\"subId\\\":\\\"$sid\\\"}"
+        local csrf; csrf=$(csrf_token)
+        curl -s --max-time 5 -b "$COOKIE_FILE" -X POST "http://127.0.0.1:2053${API_PREFIX}/panel/api/inbounds/addClient" \
+            -H "Content-Type: application/json" -H "X-Requested-With: XMLHttpRequest" -H "X-CSRF-Token: $csrf" \
+            -d "{\"id\":$id,\"settings\":\"{\\\"clients\\\":[${csv}]}\"}" | \
+        python3 -c "import sys,json; sys.exit(0 if json.load(sys.stdin).get('success') else 1)" 2>/dev/null
+    }
+
+    get_inbound_ids
+
     if [ "$UUID_MODE" = "2" ]; then
         CID1=$(cat /proc/sys/kernel/random/uuid)
         CID2=$(cat /proc/sys/kernel/random/uuid)
         SID1=$(head -c 16 /dev/urandom | md5sum | head -c 16)
         SID2=$(head -c 16 /dev/urandom | md5sum | head -c 16)
 
-        # Get inbound list to find IDs
-        csrf=$(csrf_token)
-        INBOUNDS=$(curl -s --max-time 5 -b "$COOKIE_FILE" "http://127.0.0.1:2053${API_PREFIX}/panel/api/inbounds/list" \
-            -H "X-Requested-With: XMLHttpRequest" \
-            -H "X-CSRF-Token: $csrf")
+        if add_client_to_inbound "$ID_XHTTP" "$CID1" "$SID1" ""; then
+            echo -e "  ${G}[OK]${N} XHTTP client added"
+        else
+            echo -e "  ${R}[ERROR]${N} Failed to add XHTTP client"
+        fi
+        if add_client_to_inbound "$ID_VISION" "$CID2" "$SID2" "xtls-rprx-vision"; then
+            echo -e "  ${G}[OK]${N} Vision client added"
+        else
+            echo -e "  ${R}[ERROR]${N} Failed to add Vision client"
+        fi
 
+        echo ""
+        echo -e "${G}╔══════════════════════════════════════╗${N}"
+        echo -e "${G}║     ${B}Client Added${N}${G}                  ║${N}"
+        echo -e "${G}╚══════════════════════════════════════╝${N}"
+        echo ""
+        SUB_PATH=$(sqlite3 /opt/serv/3x-ui/db/x-ui.db "SELECT value FROM settings WHERE key='subPath' LIMIT 1;" 2>/dev/null || echo "/sub/")
+        echo -e "${B}Subscription links:${N}"
+        echo -e "  ${C}XHTTP:${N}  https://${C}${DOMAIN}${N}${SUB_PATH}${SID1}"
+        echo -e "  ${C}Vision:${N} https://${C}${DOMAIN}${N}${SUB_PATH}${SID2}"
+        echo ""
+        echo -e "${B}UUIDs:${N}"
+        echo -e "  ${Y}XHTTP:${N}  ${C}$CID1${N}"
+        echo -e "  ${Y}Vision:${N} ${C}$CID2${N}"
 
-csrf=$(csrf_token)
-        RESP1=$(curl -s --max-time 5 -b "$COOKIE_FILE" -X POST "http://127.0.0.1:2053${API_PREFIX}/panel/api/inbounds/addClient" \
-            -H "Content-Type: application/json" -H "X-Requested-With: XMLHttpRequest" -H "X-CSRF-Token: $csrf" \
-            -d "{\"id\":$ID_XHTTP,\"settings\":\"{\\\"clients\\\":[{\\\"id\\\":\\\"$CID1\\\",\\\"subId\\\":\\\"$SID1\\\"}]}\"}")
-        csrf=$(csrf_token)
-        RESP2=$(curl -s --max-time 5 -b "$COOKIE_FILE" -X POST "http://127.0.0.1:2053${API_PREFIX}/panel/api/inbounds/addClient" \
-            -H "Content-Type: application/json" -H "X-Requested-With: XMLHttpRequest" -H "X-CSRF-Token: $csrf" \
-            -d "{\"id\":$ID_VISION,\"settings\":\"{\\\"clients\\\":[{\\\"id\\\":\\\"$CID2\\\",\\\"flow\\\":\\\"xtls-rprx-vision\\\",\\\"subId\\\":\\\"$SID2\\\"}]}\"}")
+    else
+        CID=$(cat /proc/sys/kernel/random/uuid)
+        SID=$(head -c 16 /dev/urandom | md5sum | head -c 16)
 
+        if add_client_to_inbound "$ID_XHTTP" "$CID" "$SID" ""; then
+            echo -e "  ${G}[OK]${N} Client added to XHTTP backend"
+        else
+            echo -e "  ${R}[ERROR]${N} Failed to add client to XHTTP backend"
+        fi
+        if add_client_to_inbound "$ID_VISION" "$CID" "$SID" "xtls-rprx-vision"; then
+            echo -e "  ${G}[OK]${N} Client added to Vision frontend"
+        else
+            echo -e "  ${R}[ERROR]${N} Failed to add client to Vision frontend"
+        fi
 
-        csrf=$(csrf_token)
-        INBOUNDS=$(curl -s --max-time 5 -b "$COOKIE_FILE" "http://127.0.0.1:2053${API_PREFIX}/panel/api/inbounds/list" \
-            -H "X-Requested-With: XMLHttpRequest" \
-            -H "X-CSRF-Token: $csrf")
-
-
-        csv="{\\\"id\\\":\\\"$CID\\\",\\\"subId\\\":\\\"$SID\\\"}"
-        csrf=$(csrf_token)
-        RESP1=$(curl -s --max-time 5 -b "$COOKIE_FILE" -X POST "http://127.0.0.1:2053${API_PREFIX}/panel/api/inbounds/addClient" \
-            -H "Content-Type: application/json" -H "X-Requested-With: XMLHttpRequest" -H "X-CSRF-Token: $csrf" \
-            -d "{\"id\":$ID_XHTTP,\"settings\":\"{\\\"clients\\\":[${csv}]}\"}")
-
-        csv2="{\\\"id\\\":\\\"$CID\\\",\\\"flow\\\":\\\"xtls-rprx-vision\\\",\\\"subId\\\":\\\"$SID\\\"}"
-        csrf=$(csrf_token)
-        RESP2=$(curl -s --max-time 5 -b "$COOKIE_FILE" -X POST "http://127.0.0.1:2053${API_PREFIX}/panel/api/inbounds/addClient" \
-            -H "Content-Type: application/json" -H "X-Requested-With: XMLHttpRequest" -H "X-CSRF-Token: $csrf" \
-            -d "{\"id\":$ID_VISION,\"settings\":\"{\\\"clients\\\":[${csv2}]}\"}")
-
-
-        # Regenerate subscription cache
-        csrf=$(csrf_token)
-        curl -s --max-time 5 -b "$COOKIE_FILE" -X POST "http://127.0.0.1:2053${API_PREFIX}/panel/api/inbounds/update/3" \
-            -H "Content-Type: application/json" -H "X-Requested-With: XMLHttpRequest" -H "X-CSRF-Token: $csrf" \
-            -d '{}' > /dev/null 2>&1 || true
+        echo ""
+        echo -e "${G}╔══════════════════════════════════════╗${N}"
+        echo -e "${G}║     ${B}Client Added${N}${G}                  ║${N}"
+        echo -e "${G}╚══════════════════════════════════════╝${N}"
+        echo ""
+        SUB_PATH=$(sqlite3 /opt/serv/3x-ui/db/x-ui.db "SELECT value FROM settings WHERE key='subPath' LIMIT 1;" 2>/dev/null || echo "/sub/")
+        echo -e "${B}Subscription link:${N}"
+        echo -e "  ${C}Single:${N} https://${C}${DOMAIN}${N}${SUB_PATH}${SID}"
+        echo ""
+        echo -e "${B}UUID:${N} ${C}$CID${N}"
     fi
 
     rm "$COOKIE_FILE"
