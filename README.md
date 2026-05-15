@@ -73,35 +73,50 @@ newgrp docker
 ```
 </details>
 
-### Развёртывание
+## Развёртывание
+
+Скрипт полностью интерактивный. При запуске он запросит домен, предпочтительные логин/пароль для панели и режим работы с подписками.
 
 ```bash
 cd /opt && git clone https://github.com/w3struk/serv && cd /serv
 
 ./setup.sh
-./setup.sh add-client
-./setup.sh status
-./setup.sh help
 ```
-
-Скрипт автоматически:
-- Генерирует пароль для Lampac
-- Генерирует случайные пути для панели и подписки
-- Обновляет Caddyfile (домен, пути, bcrypt хэш)
-- Запускает контейнеры
 
 > [!NOTE]
 > Скрипт запускается от root, так как настраивает BBR и firewall.
 
-## Полезное
+### Возможности 
+
+- **Автоматическое создание Inbound'ов:**
+  - Создает Inbound для **XHTTP** (Backend).
+  - Создает Inbound для **XTLS-Vision** (Frontend).
+- **Безопасность панели:** Настраивает Basic Auth для панели через Caddy, скрывая ее за случайным путем.
+- **Управление подписками:** Поддерживает два режима генерации подписок на выбор (одна общая ссылка для обоих протоколов или раздельные ссылки).
+
+## Управление и Полезные команды
+
+Скрипт `setup.sh` предоставляет несколько встроенных команд:
 
 ```bash
-docker compose down && docker compose up -d && docker compose logs -f # start, stop, logs
-docker compose down 3xui && docker pull ghcr.io/mhsanaei/3x-ui:latest && docker compose up -d 3xui #update 3x-ui
-docker ps #список контейнеров
-docker system prune -a  # clear all data
-docker volume ls
-docker exec -it lampac bash
+./setup.sh              # Первоначальная установка (интерактивный режим)
+./setup.sh add-client   # Добавление нового клиента к существующей установке
+./setup.sh status       # Просмотр статуса контейнеров, ссылок, путей и портов
+./setup.sh help         # Справка по командами скрипта
+```
+
+**Работа с Docker:**
+```bash
+# Перезапуск всех сервисов и просмотр логов
+docker compose down && docker compose up -d && docker compose logs -f
+
+# Обновление 3x-ui до последней версии
+docker compose down 3xui && docker pull ghcr.io/mhsanaei/3x-ui:latest && docker compose up -d 3xui
+
+docker ps               # список контейнеров
+docker system prune -a  # очистка всех неиспользуемых данных Docker
+docker volume ls        # список томов
+docker exec -it lampac bash # вход в контейнер Lampac
 ```
 
 ## Благодарности
